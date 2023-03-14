@@ -1,29 +1,52 @@
-version: '3'
+version: "3"
 services:
-  db_fw:
-    image: 'mariadb:latest'
-    container_name: db_frutsworld
+  postgres:
+    image: "postgres:latest"
     environment:
-      - MARIADB_ROOT_PASSWORD=password
-      - MARIADB_USER=fw_user
-      - MARIADB_PASSWORD=password
-    ports:
-      - 3306:3306
-    volumes:
-      - mslq_vol:/var/lib/mysql
-  api_fw:
+      - POSTGRES_PASSWORD=postgres_password
+  redis:
+    image: "redis:latest"
+  nginx:
+    depends_on:
+      - api
+      - client
+    restart: always
     build:
       dockerfile: Dockerfile.dev
-      context: ./api_frutsworld
+      context: ./nginx
+    ports:
+      - "3050:80"
+  api:
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./server
     volumes:
       - /app/node_modules
-      - ./api_frutsworld:/app
+      - ./server:/app
     environment:
-      - MSQLUSER=fw_user
-      - MSQLHOST=db_fw
-      - MSQLDATABASE=fw_dbase
-      - MSQLPASSWORD=password
-      - MSQLPORT=3306
-
-volumes:
-  mslq_vol:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PGUSER=postgres
+      - PGHOST=postgres
+      - PGDATABASE=postgres
+      - PGPASSWORD=postgres_password
+      - PGPORT=5432
+  client:
+    environment:
+      - WDS_SOCKET_PORT=0
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./client
+    volumes:
+      - /app/node_modules
+      - ./client:/app
+  worker:
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./worker
+    volumes:
+      - /app/node_modules
+      - ./worker:/app
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
